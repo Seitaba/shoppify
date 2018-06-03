@@ -1,71 +1,79 @@
-var express = require('express');
+var express = require("express");
 var router = express.Router();
-var csrf = require('csurf');
-var passport = require('passport');
+var csrf = require("csurf");
+var passport = require("passport");
 
-var Order = require('../models/order');
-var Cart = require('../models/cart');
-var User = require('../models/user');
+var Order = require("../models/order");
+var Cart = require("../models/cart");
+var User = require("../models/user");
 
 var csrfProtection = csrf();
 
-router.post('/removeUser', function(req, res, next) {
-  User.findOneAndRemove({email: req.user.email}, function(err, success) {
-    if(err) {
+router.get("/admin", function(req, res, next) {
+  var messages = req.flash("error");
+  res.render("user/admin");
+});
+
+router.post("/removeUser", function(req, res, next) {
+  User.findOneAndRemove({ email: req.user.email }, function(err, success) {
+    if (err) {
       console.log(err.message);
-      req.flash('error', 'Falha ao remover usuário!');
+      req.flash("error", "Failed to remove user!");
     }
-    if(success) {
-      req.flash('success', 'Usuário removido com sucesso!');
-      res.redirect('/');
+    if (success) {
+      req.flash("success", "User successfully removed!");
+      res.redirect("/");
     }
   });
 });
 
 router.use(csrfProtection);
 
-router.get('/profile', isLoggedIn, function(req, res, next) {
-  Order.find({
-    user: req.user
-  }, function(err, orders) {
-    if (err) {
-      return res.write('Error!');
-    }
-    var cart;
-    orders.forEach(function(order) {
-      cart = new Cart(order.cart);
-      order.items = cart.generateArray();
-    });
-    res.render('user/profile', {
-      csrfToken: req.csrfToken(),
-      orders: orders,
+router.get("/profile", isLoggedIn, function(req, res, next) {
+  Order.find(
+    {
       user: req.user
-    });
-  });
+    },
+    function(err, orders) {
+      if (err) {
+        return res.write("Error!");
+      }
+      var cart;
+      orders.forEach(function(order) {
+        cart = new Cart(order.cart);
+        order.items = cart.generateArray();
+      });
+      res.render("user/profile", {
+        csrfToken: req.csrfToken(),
+        orders: orders,
+        user: req.user
+      });
+    }
+  );
 });
 
-router.post('/profile', function(req, res, next) {
-
+router.post("/profile", function(req, res, next) {
   if (req.body.email) {
-    User.findOne({
-      email: req.body.email
-    }, function(err, doc) {
+    User.findOne(
+      {
+        email: req.body.email
+      },
+      function(err, doc) {
+        if (err) {
+          req.flash("error", "Failed");
+          console.log(err);
+        }
 
-      if (err) {
-        req.flash('error', 'falhou')
-        console.log(err);
+        doc.email = req.body.email;
+        doc.name = req.body.name;
+        doc.state = req.body.state;
+        doc.city = req.body.city;
+
+        doc.save();
       }
-
-      doc.email = req.body.email;
-      doc.name = req.body.name;
-      doc.state = req.body.state;
-      doc.city = req.body.city;
-      
-      doc.save();
-
-    });
+    );
   } else {
-    console.log("email inválido");
+    console.log("email is invalid");
   }
 
   if (req.session.oldUrl) {
@@ -73,63 +81,70 @@ router.post('/profile', function(req, res, next) {
     req.session.oldUrl = null;
     res.redirect(oldUrl);
   } else {
-    res.redirect('/user/profile');
+    res.redirect("/user/profile");
   }
 
   res.end();
-
 });
 
-router.get('/logout', isLoggedIn, function(req, res, next) {
+router.get("/logout", isLoggedIn, function(req, res, next) {
   req.logout();
-  res.redirect('/');
+  res.redirect("/");
 });
 
-router.get('/signup', function(req, res, next) {
-  var messages = req.flash('error');
-  res.render('user/signup', {
+router.get("/signup", function(req, res, next) {
+  var messages = req.flash("error");
+  res.render("user/signup", {
     csrfToken: req.csrfToken(),
     messages: messages,
     hasErrors: messages.length > 0
   });
 });
 
-router.post('/signup', passport.authenticate('local.signup', {
-  failureRedirect: '/user/signup',
-  failureFlash: true
-}), function(req, res, next) {
-  if (req.session.oldUrl) {
-    var oldUrl = req.session.oldUrl;
-    req.session.oldUrl = null;
-    res.redirect(oldUrl);
-  } else {
-    res.redirect('/user/profile');
+router.post(
+  "/signup",
+  passport.authenticate("local.signup", {
+    failureRedirect: "/user/signup",
+    failureFlash: true
+  }),
+  function(req, res, next) {
+    if (req.session.oldUrl) {
+      var oldUrl = req.session.oldUrl;
+      req.session.oldUrl = null;
+      res.redirect(oldUrl);
+    } else {
+      res.redirect("/user/profile");
+    }
   }
-});
+);
 
-router.get('/signin', function(req, res, next) {
-  var messages = req.flash('error');
-  res.render('user/signin', {
+router.get("/signin", function(req, res, next) {
+  var messages = req.flash("error");
+  res.render("user/signin", {
     csrfToken: req.csrfToken(),
     messages: messages,
     hasErrors: messages.length > 0
   });
 });
 
-router.post('/signin', passport.authenticate('local.signin', {
-  failureRedirect: '/user/signin',
-  failureFlash: true
-}), function(req, res, next) {
-  if (req.session.oldUrl) {
-    var oldUrl = req.session.oldUrl;
-    req.session.oldUrl = null;
-    res.redirect(oldUrl);
-  } else {
-    res.redirect('/user/profile');
+router.post(
+  "/signin",
+  passport.authenticate("local.signin", {
+    failureRedirect: "/user/signin",
+    failureFlash: true
+  }),
+  function(req, res, next) {
+    if (req.session.oldUrl) {
+      var oldUrl = req.session.oldUrl;
+      req.session.oldUrl = null;
+      res.redirect(oldUrl);
+    } else {
+      res.redirect("/user/profile");
+    }
   }
-});
+);
 
-router.use('/', notLoggedIn, function(req, res, next) {
+router.use("/", notLoggedIn, function(req, res, next) {
   next();
 });
 
@@ -139,12 +154,12 @@ function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) {
     return next();
   }
-  res.redirect('/');
+  res.redirect("/");
 }
 
 function notLoggedIn(req, res, next) {
   if (!req.isAuthenticated()) {
     return next();
   }
-  res.redirect('/');
+  res.redirect("/");
 }
